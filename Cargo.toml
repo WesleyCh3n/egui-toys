@@ -2,5 +2,6 @@
 members = [
   "hello-world",
   "file-dialog",
-  "confirm-exit"
+  "confirm-exit",
+  "ui"
 ]
