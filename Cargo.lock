@@ -861,6 +861,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "iter-dir"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "rfd",
+]
+
+[[package]]
 name = "jni"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

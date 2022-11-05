@@ -3,5 +3,6 @@ members = [
   "hello-world",
   "file-dialog",
   "confirm-exit",
-  "ui"
+  "ui",
+  "iter-dir",
 ]
