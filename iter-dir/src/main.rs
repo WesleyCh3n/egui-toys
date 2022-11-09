@@ -4,40 +4,56 @@ use std::sync::{Arc, Mutex};
 
 use eframe::egui;
 fn main() {
-    let mut options = eframe::NativeOptions::default();
-    options.initial_window_size = Some(egui::Vec2 { x: 400., y: 110. });
+    let options = eframe::NativeOptions {
+        initial_window_size: Some(egui::Vec2 { x: 400., y: 110. }),
+        drag_and_drop_support: true,
+        ..Default::default()
+    };
     eframe::run_native(
         "Play around ui",
         options,
-        Box::new(|_cc| Box::new(MyApp::new(_cc))),
+        Box::new(|_cc| Box::new(AppState::new(_cc))),
     );
 }
 
-struct MyApp {
+#[derive(PartialEq, Clone, Copy)]
+struct ProcState {
+    is_running: bool,
+    percentage: f32,
+}
+
+struct Proc {
+    state: Arc<Mutex<ProcState>>,
+    sx: std::sync::mpsc::Sender<ProcState>,
+}
+
+struct AppState {
     slider_value: u32,
-    curr: Arc<Mutex<i32>>,
-    sx_curr: std::sync::mpsc::Sender<i32>,
+    process: Proc,
     picked_dir: Option<String>,
     sub_dirs: Vec<std::path::PathBuf>,
 }
 
-impl MyApp {
+impl AppState {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let (sx_data, rx) = std::sync::mpsc::channel();
-        let result = Arc::new(Mutex::new(0));
-        spawn_repaint_thread(rx, result.clone(), cc.egui_ctx.clone());
+        let (sx, rx) = std::sync::mpsc::channel();
+        let state = Arc::new(Mutex::new(ProcState {
+            is_running: false,
+            percentage: 0.,
+        }));
+        spawn_repaint_thread(rx, state.clone(), cc.egui_ctx.clone());
+        let process = Proc { state, sx };
 
         Self {
             slider_value: 70,
-            curr: result,
-            sx_curr: sx_data,
+            process,
             picked_dir: None,
             sub_dirs: Vec::new(),
         }
     }
 }
 
-impl eframe::App for MyApp {
+impl eframe::App for AppState {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.group(|ui| {
@@ -67,44 +83,64 @@ impl eframe::App for MyApp {
                 })
             });
             ui.vertical_centered(|ui| {
-                let mut data = *self.curr.lock().unwrap();
-                if data == self.sub_dirs.len() as i32 {
+                let p_state = *self.process.state.lock().unwrap();
+                /* if data == self.sub_dirs.len() as i32 {
                     data = 0;
-                }
-                ui.add_visible_ui(data != 0, |ui| {
-                    ui.add(egui::ProgressBar::new(
-                        data as f32 / self.sub_dirs.len() as f32,
-                    ));
+                } */
+                ui.add_visible_ui(p_state.is_running, |ui| {
+                    ui.add(egui::ProgressBar::new(p_state.percentage));
                 });
-                ui.add_enabled_ui(data == 0 && self.picked_dir.is_some(), |ui| {
+                ui.add_enabled_ui(!p_state.is_running && self.picked_dir.is_some(), |ui| {
                     if ui.button(" Start ").clicked() {
-                        long_process(self.sx_curr.clone(), self.sub_dirs.clone());
+                        long_process(self.process.sx.clone(), self.sub_dirs.clone());
                     }
                 });
             })
         });
+        if !ctx.input().raw.dropped_files.is_empty() {
+            self.picked_dir = Some(
+                ctx.input().raw.dropped_files[0]
+                    .clone()
+                    .path
+                    .unwrap()
+                    .display()
+                    .to_string(),
+            );
+        }
     }
 }
 
-fn long_process(sender: std::sync::mpsc::Sender<i32>, dirs: Vec<std::path::PathBuf>) {
+fn long_process(sender: std::sync::mpsc::Sender<ProcState>, dirs: Vec<std::path::PathBuf>) {
     std::thread::spawn(move || {
+        let mut p_state = ProcState {
+            is_running: true,
+            percentage: 0.,
+        };
+        let num_works = dirs.len() + 1;
         for (i, dir) in dirs.iter().enumerate() {
-            sender.send(i as i32 + 1).unwrap();
+            p_state.percentage = (i + 1) as f32 / num_works as f32;
+            sender.send(p_state.clone()).unwrap();
             println!("{:?}", dir);
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
+
+        p_state.percentage = 1.;
+        sender.send(p_state.clone()).unwrap();
+
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        p_state.is_running = false;
+        sender.send(p_state.clone()).unwrap();
     });
 }
 
 fn spawn_repaint_thread<T: std::marker::Send + 'static>(
     rx: std::sync::mpsc::Receiver<T>,
-    data: Arc<Mutex<T>>,
+    proc_state: Arc<Mutex<T>>,
     ctx: egui::Context,
 ) {
     std::thread::spawn(move || loop {
-        if let Ok(a) = rx.recv() {
-            let mut data_ = data.lock().unwrap();
-            *data_ = a;
+        if let Ok(state) = rx.recv() {
+            *proc_state.lock().unwrap() = state;
             ctx.request_repaint();
         }
     });
