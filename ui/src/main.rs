@@ -43,15 +43,38 @@ impl MyApp {
 }
 
 impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &eframe::egui::Context, frame: &mut eframe::Frame) {
+        // process event
+        for e in &ctx.input().events {
+            match e {
+                // keyboard events
+                egui::Event::Key {
+                    key,
+                    pressed: _,
+                    modifiers,
+                } => {
+                    if modifiers.ctrl == true {
+                        match key {
+                            egui::Key::W => frame.close(),
+                            _ => {}
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
         // TopBottomPanel must before CentralPanel
         egui::TopBottomPanel::top("my panel").show(ctx, |ui| {
-            ui.menu_button("My menu", |ui| {
-                if ui.button("Close the menu").clicked() {
-                    ui.close_menu();
-                }
-            });
+            egui::menu::bar(ui, |ui| {
+                ui.menu_button("File", |ui| {
+                    if ui.button("Open").clicked() {}
+                    if ui.button("Close").clicked() {}
+                });
+                ui.menu_button("Edits", |_ui| {});
+                ui.menu_button("Tools", |_ui| {});
+            })
         });
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("This is heading");
             if ui.button("click button").clicked() {
@@ -77,7 +100,6 @@ impl eframe::App for MyApp {
                     ui.add(egui::DragValue::new(&mut self.slider_value).clamp_range(0..=100));
                 });
             });
-            ui.weak("somthing\nnextline");
             ui.horizontal(|ui| {
                 ui.set_visible(false);
                 if ui.button("start").clicked() {
@@ -95,6 +117,80 @@ impl eframe::App for MyApp {
             .open(&mut self.show_window)
             .show(ctx, |ui| {
                 ui.label("Hello world");
+            });
+        egui::Window::new("Plot")
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
+            // .default_size(egui::vec2(600., 600.))
+            // .resizable(true)
+            .show(ctx, |ui| {
+                use egui::plot::{Bar, BarChart, Legend, Line, Plot, PlotPoints, VLine};
+                ui.horizontal(|ui| {
+                    let sin: PlotPoints = (0..1000)
+                        .map(|i| {
+                            let x = i as f64 * 0.01;
+                            [x, x.sin()]
+                        })
+                        .collect();
+                    let cos: PlotPoints = (0..1000)
+                        .map(|i| {
+                            let x = i as f64 * 0.01;
+                            [x, x.cos()]
+                        })
+                        .collect();
+                    Plot::new("my_plot")
+                        .view_aspect(1.0)
+                        .height(150.)
+                        .legend(Legend::default()) // with .name() method
+                        .include_x(0.) // show x axis label
+                        .show(ui, |plot_ui| {
+                            plot_ui.vline(VLine::new(0.5));
+                            plot_ui.vline(VLine::new(5));
+                            plot_ui.vline(VLine::new(9));
+                            plot_ui.line(Line::new(sin).name("sin"));
+                            plot_ui.line(Line::new(cos).name("cos"));
+                        });
+
+                    let bin_size = 5.;
+                    let bars = BarChart::new(
+                        (0..10)
+                            .map(|x| {
+                                Bar::new((x as f32 * bin_size) as f64, x as f64)
+                                    .width(bin_size as f64)
+                            })
+                            .collect(),
+                    )
+                    .color(egui::color::Color32::LIGHT_BLUE);
+
+                    Plot::new("my_barchart")
+                        .view_aspect(1.0)
+                        .height(150.0)
+                        .show(ui, |plot_ui| plot_ui.bar_chart(bars));
+
+                    let points: PlotPoints = [
+                        [0.0, 1.0],
+                        [1.0, 2.0],
+                        [2.0, 5.0],
+                        [3.0, 4.0],
+                        [4.0, 1.0],
+                        [5.0, 2.0],
+                    ]
+                    .into_iter()
+                    .collect();
+                    let points: PlotPoints = (0..1000)
+                        .map(|i| {
+                            let x = i as f64 * 0.01;
+                            [x, x.sin()]
+                        })
+                        .collect();
+                    Plot::new("fill line")
+                        .view_aspect(1.0)
+                        .height(150.)
+                        .legend(Legend::default()) // with .name() method
+                        .include_x(0.) // show x axis label
+                        .show(ui, |plot_ui| {
+                            plot_ui.line(Line::new(points).fill(0.).name("fill"));
+                        });
+                });
             });
     }
 }
