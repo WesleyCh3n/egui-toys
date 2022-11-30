@@ -456,6 +456,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui-dock"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui_dock",
+]
+
+[[package]]
 name = "egui-winit"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -468,6 +476,14 @@ dependencies = [
  "tracing",
  "webbrowser",
  "winit",
+]
+
+[[package]]
+name = "egui_dock"
+version = "0.2.1"
+source = "git+https://github.com/Adanos020/egui_dock?rev=5f6a431#5f6a431841815d70e45e32f56727a75a1b5c01bb"
+dependencies = [
+ "egui",
 ]
 
 [[package]]
