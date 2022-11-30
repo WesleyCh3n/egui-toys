@@ -1,4 +1,4 @@
-use eframe::egui;
+use eframe::egui::{self, plot::Polygon};
 
 use crate::MyApp;
 use egui::plot::{
@@ -50,6 +50,26 @@ pub fn plots_window(app: &mut MyApp, ui: &mut egui::Ui) {
                     plot_ui.vline(VLine::new(9));
                     plot_ui.line(Line::new(sin).name("sin"));
                     plot_ui.line(Line::new(cos).name("cos"));
+
+                    use std::f64::consts::PI;
+                    plot_ui.polygon(Polygon::new(
+                        PlotPoints::from_parametric_callback(
+                            |t| {
+                                let w = 4.;
+                                let h = 3.;
+                                if 0. <= t && t < PI / 4. {
+                                    return (h * t.tan(), h);
+                                } else if PI / 4. <= t && t < PI / 2. {
+                                    return (w, w * t.tan());
+                                } else if PI / 2. <= t && t < PI * 3. / 4. {
+                                    return (w, -w * t.tan());
+                                }
+                                return (t.cos(), t.sin());
+                            },
+                            0.0..2. * PI,
+                            360,
+                        ),
+                    ));
                 });
         }
         PlotPanel::LineFill => {
